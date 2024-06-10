@@ -14,10 +14,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/percipia/eslgo/command"
-	"github.com/percipia/eslgo/command/call"
 	"io"
 	"log"
+	"time"
+
+	"github.com/percipia/eslgo/command"
+	"github.com/percipia/eslgo/command/call"
 )
 
 func (c *Conn) EnableEvents(ctx context.Context) error {
@@ -79,9 +81,17 @@ func (c *Conn) WaitForDTMF(ctx context.Context, uuid string) (byte, error) {
 		if event.GetName() == "DTMF" {
 			dtmf := event.GetHeader("DTMF-Digit")
 			if len(dtmf) > 0 {
-				done <- dtmf[0]
+				select {
+				case done <- dtmf[0]:
+				default:
+				}
+			} else {
+				select {
+				case done <- 0:
+				default:
+				}
 			}
-			done <- 0
+			time.Sleep(10 * time.Millisecond)
 		}
 	})
 	defer func() {
