@@ -14,12 +14,13 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"github.com/google/uuid"
-	"github.com/percipia/eslgo/command"
 	"net"
 	"net/textproto"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/percipia/eslgo/command"
 )
 
 type Conn struct {
@@ -118,9 +119,6 @@ func (c *Conn) RemoveEventListener(channelUUID string, id string) {
 
 // SendCommand - Sends the specified ESL command to FreeSWITCH with the provided context. Returns the response data and any errors encountered.
 func (c *Conn) SendCommand(ctx context.Context, cmd command.Command) (*RawResponse, error) {
-	c.writeLock.Lock()
-	defer c.writeLock.Unlock()
-
 	if linger, ok := cmd.(command.Linger); ok {
 		if linger.Enabled {
 			if linger.Seconds > 0 {
@@ -136,7 +134,9 @@ func (c *Conn) SendCommand(ctx context.Context, cmd command.Command) (*RawRespon
 	if deadline, ok := ctx.Deadline(); ok {
 		_ = c.conn.SetWriteDeadline(deadline)
 	}
+	c.writeLock.Lock()
 	_, err := c.conn.Write([]byte(cmd.BuildMessage() + EndOfMessage))
+	c.writeLock.Unlock()
 	if err != nil {
 		return nil, err
 	}
