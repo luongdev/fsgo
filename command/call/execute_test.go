@@ -20,31 +20,34 @@ import (
 var (
 	TestExecMessage = strings.ReplaceAll(`sendmsg none
 Call-Command: execute
-Execute-App-Arg: /tmp/test.wav
 Execute-App-Name: playback
-Loops: 1`, "\n", "\r\n")
+Loops: 1
+Execute-App-Arg: /tmp/test.wav`, "\n", "\r\n")
 	TestSetMessage = strings.ReplaceAll(`sendmsg none
-Call-Command: execute
 Content-Length: 11
-Content-Type: text/plain
+Call-Command: execute
 Execute-App-Name: set
 Loops: 1
+Content-Type: text/plain
+Content-Length: 11
 
 hello=world`, "\n", "\r\n")
 	TestExportMessage = strings.ReplaceAll(`sendmsg none
-Call-Command: execute
 Content-Length: 11
 Content-Type: text/plain
+Content-Length: 11
+Call-Command: execute
 Execute-App-Name: export
 Loops: 1
 
 hello=world`, "\n", "\r\n")
 	TestPushMessage = strings.ReplaceAll(`sendmsg none
-Call-Command: execute
 Content-Length: 11
-Content-Type: text/plain
+Call-Command: execute
 Execute-App-Name: push
 Loops: 1
+Content-Type: text/plain
+Content-Length: 11
 
 hello=world`, "\n", "\r\n")
 )
