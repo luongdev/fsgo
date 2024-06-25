@@ -14,30 +14,32 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"github.com/google/uuid"
-	"github.com/percipia/eslgo/command"
+	"fmt"
 	"net"
 	"net/textproto"
 	"sync"
 	"time"
+
+	"github.com/percipia/eslgo/command"
 )
 
 type Conn struct {
-	conn              net.Conn
-	reader            *bufio.Reader
-	header            *textproto.Reader
-	writeLock         sync.Mutex
-	runningContext    context.Context
-	stopFunc          func()
-	responseChannels  map[string]chan *RawResponse
-	responseChanMutex sync.RWMutex
-	eventListenerLock sync.RWMutex
-	eventListeners    map[string]map[string]EventListener
-	outbound          bool
-	logger            Logger
-	exitTimeout       time.Duration
-	closeOnce         sync.Once
-	closeDelay        time.Duration
+	conn                 net.Conn
+	reader               *bufio.Reader
+	header               *textproto.Reader
+	writeLock            sync.Mutex
+	runningContext       context.Context
+	stopFunc             func()
+	responseChannels     map[string]chan *RawResponse
+	responseChanMutex    sync.RWMutex
+	eventListenerLock    sync.RWMutex
+	eventListeners       map[string]map[string]EventListener
+	eventListenerCounter int
+	outbound             bool
+	logger               Logger
+	exitTimeout          time.Duration
+	closeOnce            sync.Once
+	closeDelay           time.Duration
 }
 
 // Options - Generic options for an ESL connection, either inbound or outbound
@@ -97,7 +99,8 @@ func (c *Conn) RegisterEventListener(channelUUID string, listener EventListener)
 	c.eventListenerLock.Lock()
 	defer c.eventListenerLock.Unlock()
 
-	id := uuid.New().String()
+	c.eventListenerCounter++
+	id := fmt.Sprintf("%d", c.eventListenerCounter)
 	if _, ok := c.eventListeners[channelUUID]; ok {
 		c.eventListeners[channelUUID][id] = listener
 	} else {
@@ -118,10 +121,8 @@ func (c *Conn) RemoveEventListener(channelUUID string, id string) {
 
 // SendCommand - Sends the specified ESL command to FreeSWITCH with the provided context. Returns the response data and any errors encountered.
 func (c *Conn) SendCommand(ctx context.Context, cmd command.Command) (*RawResponse, error) {
-	c.writeLock.Lock()
-	defer c.writeLock.Unlock()
-
 	if linger, ok := cmd.(command.Linger); ok {
+		c.writeLock.Lock()
 		if linger.Enabled {
 			if linger.Seconds > 0 {
 				c.closeDelay = linger.Seconds
@@ -131,12 +132,18 @@ func (c *Conn) SendCommand(ctx context.Context, cmd command.Command) (*RawRespon
 		} else {
 			c.closeDelay = 0
 		}
+		c.writeLock.Unlock()
 	}
 
 	if deadline, ok := ctx.Deadline(); ok {
+		c.writeLock.Lock()
 		_ = c.conn.SetWriteDeadline(deadline)
+		c.writeLock.Unlock()
 	}
+
+	c.writeLock.Lock()
 	_, err := c.conn.Write([]byte(cmd.BuildMessage() + EndOfMessage))
+	c.writeLock.Unlock()
 	if err != nil {
 		return nil, err
 	}
@@ -144,6 +151,7 @@ func (c *Conn) SendCommand(ctx context.Context, cmd command.Command) (*RawRespon
 	// Get response
 	c.responseChanMutex.RLock()
 	defer c.responseChanMutex.RUnlock()
+	timeout := time.After(10 * time.Second)
 	select {
 	case response := <-c.responseChannels[TypeReply]:
 		if response == nil {
@@ -159,6 +167,8 @@ func (c *Conn) SendCommand(ctx context.Context, cmd command.Command) (*RawRespon
 		return response, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
+	case <-timeout:
+		return nil, errors.New("command timed out while waiting for a response from Freeswitch")
 	}
 }
 
