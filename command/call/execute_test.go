@@ -1,53 +1,54 @@
-/*
- * Copyright (c) 2020 Percipia
- *
- * This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at https://mozilla.org/MPL/2.0/.
- *
- * Contributor(s):
- * Andrew Querol <aquerol@percipia.com>
- */
 package call
 
 import (
+	"sort"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
+// Normalizes the headers in a message to ensure they are always in the same order before comparison
+func normalizeMessage(message string) string {
+	parts := strings.Split(message, "\r\n\r\n")
+	headers := strings.Split(parts[0], "\r\n")
+	sort.Strings(headers)
+	normalizedHeaders := strings.Join(headers, "\r\n")
+
+	if len(parts) > 1 {
+		return normalizedHeaders + "\r\n\r\n" + parts[1]
+	}
+	return normalizedHeaders
+}
+
 var (
 	TestExecMessage = strings.ReplaceAll(`sendmsg none
 Call-Command: execute
+Execute-App-Arg: /tmp/test.wav
 Execute-App-Name: playback
-Loops: 1
-Execute-App-Arg: /tmp/test.wav`, "\n", "\r\n")
+Loops: 1`, "\n", "\r\n")
 	TestSetMessage = strings.ReplaceAll(`sendmsg none
-Content-Length: 11
 Call-Command: execute
+Content-Length: 11
+Content-Type: text/plain
 Execute-App-Name: set
 Loops: 1
-Content-Type: text/plain
-Content-Length: 11
 
 hello=world`, "\n", "\r\n")
 	TestExportMessage = strings.ReplaceAll(`sendmsg none
+Call-Command: execute
 Content-Length: 11
 Content-Type: text/plain
-Content-Length: 11
-Call-Command: execute
 Execute-App-Name: export
 Loops: 1
 
 hello=world`, "\n", "\r\n")
 	TestPushMessage = strings.ReplaceAll(`sendmsg none
-Content-Length: 11
 Call-Command: execute
+Content-Length: 11
+Content-Type: text/plain
 Execute-App-Name: push
 Loops: 1
-Content-Type: text/plain
-Content-Length: 11
 
 hello=world`, "\n", "\r\n")
 )
@@ -58,7 +59,7 @@ func TestExecute_BuildMessage(t *testing.T) {
 		AppName: "playback",
 		AppArgs: "/tmp/test.wav",
 	}
-	assert.Equal(t, TestExecMessage, exec.BuildMessage())
+	assert.Equal(t, normalizeMessage(TestExecMessage), normalizeMessage(exec.BuildMessage()))
 }
 
 func TestSet_BuildMessage(t *testing.T) {
@@ -67,7 +68,7 @@ func TestSet_BuildMessage(t *testing.T) {
 		Key:   "hello",
 		Value: "world",
 	}
-	assert.Equal(t, TestSetMessage, set.BuildMessage())
+	assert.Equal(t, normalizeMessage(TestSetMessage), normalizeMessage(set.BuildMessage()))
 }
 
 func TestExport_BuildMessage(t *testing.T) {
@@ -76,7 +77,7 @@ func TestExport_BuildMessage(t *testing.T) {
 		Key:   "hello",
 		Value: "world",
 	}
-	assert.Equal(t, TestExportMessage, export.BuildMessage())
+	assert.Equal(t, normalizeMessage(TestExportMessage), normalizeMessage(export.BuildMessage()))
 }
 
 func TestPush_BuildMessage(t *testing.T) {
@@ -85,5 +86,5 @@ func TestPush_BuildMessage(t *testing.T) {
 		Key:   "hello",
 		Value: "world",
 	}
-	assert.Equal(t, TestPushMessage, push.BuildMessage())
+	assert.Equal(t, normalizeMessage(TestPushMessage), normalizeMessage(push.BuildMessage()))
 }

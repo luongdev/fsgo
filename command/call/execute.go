@@ -89,7 +89,6 @@ func (e *Execute) BuildMessage() string {
 	// According to documentation that is the max header length
 	if len(e.AppArgs) > 2048 || e.ForceBody {
 		sendMsg.Headers.Set("Content-Type", "text/plain")
-		sendMsg.Headers.Set("Content-Length", strconv.Itoa(len(e.AppArgs)))
 		sendMsg.Body = e.AppArgs
 	} else {
 		sendMsg.Headers.Set("execute-app-arg", e.AppArgs)
