@@ -151,7 +151,6 @@ func (c *Conn) SendCommand(ctx context.Context, cmd command.Command) (*RawRespon
 	// Get response
 	c.responseChanMutex.RLock()
 	defer c.responseChanMutex.RUnlock()
-	timeout := time.After(10 * time.Second)
 	select {
 	case response := <-c.responseChannels[TypeReply]:
 		if response == nil {
@@ -167,8 +166,6 @@ func (c *Conn) SendCommand(ctx context.Context, cmd command.Command) (*RawRespon
 		return response, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
-	case <-timeout:
-		return nil, errors.New("command timed out while waiting for a response from Freeswitch")
 	}
 }
 
