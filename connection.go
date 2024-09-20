@@ -135,18 +135,20 @@ func (c *Conn) SendCommand(ctx context.Context, cmd command.Command) (*RawRespon
 		c.writeLock.Unlock()
 	}
 
-	if deadline, ok := ctx.Deadline(); ok {
-		c.writeLock.Lock()
-		_ = c.conn.SetWriteDeadline(deadline)
-		c.writeLock.Unlock()
-	}
-
+	deadline, ok := ctx.Deadline()
 	c.writeLock.Lock()
+	if ok {
+		_ = c.conn.SetWriteDeadline(deadline)
+	}
 	_, err := c.conn.Write([]byte(cmd.BuildMessage() + EndOfMessage))
-	c.writeLock.Unlock()
 	if err != nil {
+		c.writeLock.Unlock()
 		return nil, err
 	}
+	if ok {
+		_ = c.conn.SetWriteDeadline(time.Time{})
+	}
+	c.writeLock.Unlock()
 
 	// Get response
 	c.responseChanMutex.RLock()
