@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/percipia/eslgo/command"
+	"github.com/luongdev/fsgo/command"
 )
 
 type Conn struct {
@@ -154,15 +154,13 @@ func (c *Conn) SendCommand(ctx context.Context, cmd command.Command) (*RawRespon
 	c.responseChanMutex.RLock()
 	defer c.responseChanMutex.RUnlock()
 	select {
-	case response := <-c.responseChannels[TypeReply]:
-		if response == nil {
-			// We only get nil here if the channel is closed
+	case response, resOk := <-c.responseChannels[TypeReply]:
+		if !resOk || response == nil {
 			return nil, errors.New("connection closed")
 		}
 		return response, nil
-	case response := <-c.responseChannels[TypeAPIResponse]:
-		if response == nil {
-			// We only get nil here if the channel is closed
+	case response, resOk := <-c.responseChannels[TypeAPIResponse]:
+		if !resOk || response == nil {
 			return nil, errors.New("connection closed")
 		}
 		return response, nil
